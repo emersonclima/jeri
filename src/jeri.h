@@ -2,7 +2,7 @@
 #define _JERI_H_
 
 int strtrimcpy(char* dst, const char* src);
-int parse_lines(const char* filename, int buffer_size, int (*callback) (const char* line, int count));
+int parse_lines(const char* filename, int buffer_size, int (*callback) (const char* line, int count, void* tag), void* tag);
 
 struct pdb_atom {
 	int serial;
@@ -19,15 +19,36 @@ struct pdb_atom {
 	float tempFactor;
 	char element[3];
 	char charge[3];
+
+	struct pdb_atom* next;
 };
 typedef struct pdb_atom PDBAtom;
 
+PDBAtom* PDBAtom_create();
 void PDBAtom_parse(PDBAtom *atom, const char* str);
 void PDBAtom_tostring(PDBAtom *atom, char* dst);
 void PDBAtom_print(PDBAtom *atom);
-/*
-struct atom;
-typedef struct atom Atom;
-int atom_parse(char* s, Atom* a);
-*/
+void PDBAtom_destroy();
+
+struct pdb_model {
+	int serial;
+	PDBAtom* first_atom;
+	PDBAtom* last_atom;
+};
+typedef struct pdb_model PDBModel;
+
+PDBModel* PDBModel_create();
+void PDBModel_destroy();
+void PDBModel_add(PDBModel* model, PDBAtom* atom);
+void PDBModel_remove(PDBModel* model, PDBAtom* atom);
+
+//int PDBModel_addAtom(PDBAtom* atom);
+//int PDBModel_remove(PDBAtom* atom);
+//
+//int PDBFile_create(PDBFile* pdb);
+//int PDBFile_parse(PDBFile* pdb, char* filename);
+//int PDBFile_addModel(PDBFile*);
+//int PDBFile_getModel(PDBFile*, int serial);
+//void PDBFile_destroy(PDBFile* pdb);
+
 #endif

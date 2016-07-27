@@ -2,6 +2,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
+#include <malloc.h>
 
 #include "jeri.h"
 
@@ -27,13 +28,13 @@ int strtrimcpy(char* dst, const char* src) {
 	return n;
 }
 
-int parse_lines(const char* filename, int buffer_size, int (*callback) (const char* line, int count)) {
+int parse_lines(const char* filename, int buffer_size, int (*callback) (const char* line, int count, void* tag), void* tag) {
 	FILE* f = fopen(filename, "r");
 	if (!f) return 1;
 	char buffer[buffer_size + 1];
 	int line = 1;
 	while (!feof(f)) {		
-		callback(fgets(buffer, buffer_size, f), line);
+		callback(fgets(buffer, buffer_size, f), line, tag);
 		line += 1;
 	}
 	fclose(f);
@@ -62,6 +63,32 @@ static void real_field(const char* src, float *dst, int start_col, int end_col) 
 	char aux[10];
 	string_field(src, aux, start_col, end_col);
 	*dst = strtod(aux, NULL);
+}
+
+PDBAtom* PDBAtom_create() {
+	PDBAtom* atom = (PDBAtom*) malloc(sizeof(PDBAtom));
+	if (atom == NULL) return NULL;
+	atom->serial = 0;
+	*(atom->name) = '\0';
+	atom->altLoc = ' ';
+	*(atom->resName) = '\0';
+	atom->chainID = 'A';
+	atom->resSeq = 0;
+	atom->iCode = ' ';
+	atom->x = 0;
+	atom->y = 0;
+	atom->z = 0;
+	atom->occupancy = 0;
+	atom->tempFactor = 0;
+	*(atom->element) = '\0';
+	*(atom->charge) = '\0';
+
+	atom->next = NULL;
+	return atom;
+}
+
+void PDBAtom_destroy(PDBAtom* atom) {
+	free(atom);
 }
 
 void PDBAtom_parse(PDBAtom *atom, const char* str) {
@@ -97,4 +124,44 @@ void PDBAtom_print(PDBAtom *atom) {
 	s[80] = '\0';
 	PDBAtom_tostring(atom, s);
 	printf("%s\n", s);
+}
+
+PDBModel* PDBModel_create() {
+	PDBModel* model = (PDBModel*) malloc(sizeof(PDBModel));
+	if (model == NULL) return NULL;
+	model->serial = 0;
+	model->first_atom = NULL;
+	model->last_atom = NULL;
+	return model;
+}
+
+void PDBModel_add(PDBModel* model, PDBAtom* atom) {
+	if (model->first_atom == NULL) {
+		model->first_atom = model->last_atom = atom;
+	} else {
+		model->last_atom->next = atom;
+		model->last_atom = atom;
+	}
+}
+
+void PDBModel_remove(PDBModel* model, PDBAtom* atom) {	
+	if (model->first_atom == NULL) return;
+	int cabeca = atom == model->first_atom;
+	int cauda = atom == model->last_atom;
+	if (cabeca || cauda) {
+		if (cabeca) {
+			model->first_atom = atom->next;
+		}
+		if (cauda) {
+			model->last_atom = atom->next;
+		}
+	} else {
+		PDBAtom* it = model->first_atom;
+		while (it->next->next != NULL) {
+			it = it->next;
+		}
+		if (it->next == atom) {
+			it->next = atom->next;
+		}
+	}
 }
