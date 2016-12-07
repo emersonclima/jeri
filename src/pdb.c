@@ -4,42 +4,7 @@
 #include <stdlib.h>
 #include <malloc.h>
 
-#include "jeri.h"
-
-static const char* lstrip(const char* s) {
-	while (*s != '\0' && isspace(*s)) s += 1;
-	return s;
-}
-
-static const char* rstrip(const char* s) {
-	const char* e = s;
-	while (*e != '\0') e += 1;	
-	while (e != s && (*e == '\0' || isspace(*e))) e -= 1;
-	return e;
-}
-
-int strtrimcpy(char* dst, const char* src) {
-	const char *i = lstrip(src);
-	const char *f = rstrip(src);
-	int n = i - f;
-	n = n > 0 ? n : -n;
-	n += 1;
-	strncpy(dst, i, n);
-	return n;
-}
-
-int parse_lines(const char* filename, int buffer_size, int (*callback) (const char* line, int count, void* tag), void* tag) {
-	FILE* f = fopen(filename, "r");
-	if (!f) return 1;
-	char buffer[buffer_size + 1];
-	int line = 1;
-	while (!feof(f)) {		
-		callback(fgets(buffer, buffer_size, f), line, tag);
-		line += 1;
-	}
-	fclose(f);
-	return 0;
-}
+#include "pdb.h"
 
 static void string_field(const char* src, char* dst, int start_col, int end_col) {
 	int n = end_col - start_col + 1;
@@ -68,6 +33,7 @@ static void real_field(const char* src, float *dst, int start_col, int end_col) 
 PDBAtom* PDBAtom_create() {
 	PDBAtom* atom = (PDBAtom*) malloc(sizeof(PDBAtom));
 	if (atom == NULL) return NULL;
+	atom->record_type[0] = '\0';
 	atom->serial = 0;
 	*(atom->name) = '\0';
 	atom->altLoc = ' ';
@@ -92,6 +58,7 @@ void PDBAtom_destroy(PDBAtom* atom) {
 }
 
 void PDBAtom_parse(PDBAtom *atom, const char* str) {
+	 string_field(str,   atom->record_type,  1, 6);
 	integer_field(str, &(atom->serial)    ,  7, 11);
 	 string_field(str,  (atom->name)      , 13, 16);
 	   char_field(str, &(atom->altLoc)    , 17    );
@@ -110,13 +77,13 @@ void PDBAtom_parse(PDBAtom *atom, const char* str) {
 
 void PDBAtom_tostring(PDBAtom *atom, char* str) {
 	char aux[5];
-	if (strlen(atom->name) == 4) {
+	if (strnlen(atom->name, 5) == 4) {
 		sprintf(aux, "%s", atom->name);
 	} else {
 		sprintf(aux, " %s", atom->name);
 	}
 	aux[4] = '\0';	
-	sprintf(str, "ATOM   %4d%-4s%c%4s %c%4d%c   %8.3f%8.3f%8.3f%6.2f%6.2f          %2s%2s", atom->serial, aux, atom->altLoc, atom->resName, atom->chainID, atom->resSeq, atom->iCode, atom->x, atom->y, atom->z, atom->occupancy, atom->tempFactor, atom->element, atom->charge);
+	sprintf(str, "%-6s%5d %-4s%c%3s %c%4d%c   %8.3f%8.3f%8.3f%6.2f%6.2f          %2s%2s", atom->record_type, atom->serial, aux, atom->altLoc, atom->resName, atom->chainID, atom->resSeq, atom->iCode, atom->x, atom->y, atom->z, atom->occupancy, atom->tempFactor, atom->element, atom->charge);
 }
 
 void PDBAtom_print(PDBAtom *atom) {
@@ -126,6 +93,7 @@ void PDBAtom_print(PDBAtom *atom) {
 	printf("%s\n", s);
 }
 
+/*
 PDBModel* PDBModel_create() {
 	PDBModel* model = (PDBModel*) malloc(sizeof(PDBModel));
 	if (model == NULL) return NULL;
@@ -165,3 +133,4 @@ void PDBModel_remove(PDBModel* model, PDBAtom* atom) {
 		}
 	}
 }
+*/

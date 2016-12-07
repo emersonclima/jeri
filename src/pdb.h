@@ -1,10 +1,10 @@
 #ifndef _JERI_H_
 #define _JERI_H_
 
-int strtrimcpy(char* dst, const char* src);
-int parse_lines(const char* filename, int buffer_size, int (*callback) (const char* line, int count, void* tag), void* tag);
+#include "util.h"
 
 struct pdb_atom {
+	char record_type[7];
 	int serial;
 	char name[5];
 	char altLoc;
@@ -30,6 +30,7 @@ void PDBAtom_tostring(PDBAtom *atom, char* dst);
 void PDBAtom_print(PDBAtom *atom);
 void PDBAtom_destroy();
 
+/*
 struct pdb_model {
 	int serial;
 	PDBAtom* first_atom;
@@ -50,5 +51,5 @@ void PDBModel_remove(PDBModel* model, PDBAtom* atom);
 //int PDBFile_addModel(PDBFile*);
 //int PDBFile_getModel(PDBFile*, int serial);
 //void PDBFile_destroy(PDBFile* pdb);
-
+*/
 #endif
