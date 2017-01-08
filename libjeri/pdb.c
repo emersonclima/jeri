@@ -58,7 +58,7 @@ void PDBAtom_destroy(PDBAtom* atom) {
 }
 
 void PDBAtom_parse(PDBAtom *atom, const char* str) {
-	 string_field(str,   atom->record_type,  1, 6);
+	 string_field(str,   atom->record_type,  1,  6);
 	integer_field(str, &(atom->serial)    ,  7, 11);
 	 string_field(str,  (atom->name)      , 13, 16);
 	   char_field(str, &(atom->altLoc)    , 17    );

@@ -1,9 +1,11 @@
 %{
-#include "parser.h"
+#include "stdlib.h"
 #include "ast.h"
+#include "parser.h"
 %}
 
 %option noyywrap
+%option bison-bridge
 
 ws      	[ \r\n\t]+
 alpha		[A-Za-z]
@@ -12,18 +14,19 @@ integer 	{digit}+
 float		[0-9]+"."[0-9]*
 number		({integer}|{float})
 string  	\"[^\n\"]*\"
-field		(serial|name|altloc|resname|chain|res|icode|x|y|z|occupancy|tempfactor|element|charge)
 
 %%
 
-{ws}   		/* skip blanks and tabs */
+"(" 		{ return LPAREN; }
+")"			{ return RPAREN; }
 and 		{ return AND; }
 or 			{ return OR; }
 not 		{ return NOT; }
-"(" 		{ return LPAREN; }
-")"			{ return RPAREN; }
 true		{ return TRUE; }
 false		{ return FALSE; }
+
+{number}	{ yylval->fval = atof(yytext); return NUMBER; }
+{ws}   		/* skip blanks and tabs */
 .        	{ printf("Unrecognized token!"); exit(1); }
 
 %%

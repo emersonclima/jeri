@@ -6,11 +6,17 @@
 #include "pdb.h"
 #include "ast.h"
 
+//provided by flex and bison tools
+void yy_scan_string(const char *str);
+int yyparse (void* tag);
+int yylex_destroy();
+
 struct args_t {
 	FILE* in_file;
 	FILE* out_file;
 	bool verbose;
 	bool reindex;
+	char* filter_exp;
 
 	bool is_atom;
 	bool is_hetatm;
@@ -21,39 +27,23 @@ struct args_t {
 	char resname_notequals[4];
 } global_args;
 
-static const char *opt_string = "f:o:rvh?";
-
-static const struct option longOpts[] = {
-	{ "is-atom", 			no_argument, 		0, 0 },
-	{ "is-hetatm", 			no_argument, 		0, 0 },
-	{ "altloc-equals", 		required_argument, 	0, 0 },
-	{ "altloc-not-equals", 	required_argument, 	0, 0 },
-	{ "resname-equals", 	required_argument,  0, 0 },
-	{ "resname-not-equals",	required_argument,  0, 0 }
-};
+static const char *opt_string = "f:o:e:rvh?";
 
 void display_usage() {
-	puts("pdbsel - Select pdb records");
+	puts("pdbfilter - Filter PDB records");
 	exit(EXIT_FAILURE);
 }
 
 void parse_global_args(int argc, char* argv[]) {
 	global_args.in_file = stdin;
 	global_args.out_file = stdout;
+	global_args.filter_exp = "true";
 	global_args.verbose = false;
-	global_args.reindex = false;
-	global_args.is_atom = false;
-	global_args.is_hetatm = false;
-
-	strcpy(global_args.resname_equals, "");
-	strcpy(global_args.resname_notequals, "");
-
-	global_args.altloc_equals = 0;
-	global_args.altloc_notequals = 0;
+	global_args.reindex = false;	
 
 	int opt = 0;
 	int longIndex = 0;
-	opt = getopt_long(argc, argv, opt_string, longOpts, &longIndex);
+	opt = getopt(argc, argv, opt_string);
 	while (opt != -1) {
 		switch(opt) {
 			case 'f': {
@@ -75,40 +65,10 @@ void parse_global_args(int argc, char* argv[]) {
 			case 'v': global_args.verbose = true; break;
 			case 'r': global_args.reindex = true; break;
 			case 'h': case '?': display_usage(); break;
-			default: break;
-			case 0: {				
-				if (strcmp("is-atom", longOpts[longIndex].name) == 0) {
-					global_args.is_atom = true;
-				} else if (strcmp("is-hetatm", longOpts[longIndex].name) == 0) {
-					global_args.is_hetatm = true;
-				} else if (strcmp("resname-equals", longOpts[longIndex].name) == 0) {
-					if (strnlen(optarg, 4) != 3) {
-						fprintf(stderr, "O comprimento do campo resname deve no máximo 3!\n");
-						exit(EXIT_FAILURE);
-					}
-					strncpy(global_args.resname_equals, optarg, 4);
-				} else if (strcmp("resname-not-equals", longOpts[longIndex].name) == 0) {
-					if (strnlen(optarg, 4) != 3) {
-						fprintf(stderr, "O comprimento do campo resname deve no máximo 3!\n");
-						exit(EXIT_FAILURE);
-					}
-					strncpy(global_args.resname_notequals, optarg, 4);
-				} else if (strcmp("altloc-equals", longOpts[longIndex].name) == 0) {
-					if (strnlen(optarg, 2) != 1) {
-						fprintf(stderr, "O comprimento do campo altLoc deve ser 1!\n");
-						exit(EXIT_FAILURE);
-					}
-					global_args.altloc_equals = optarg[0];
-				} else if (strcmp("altloc-not-equals", longOpts[longIndex].name) == 0) {
-					if (strnlen(optarg, 2) != 1) {
-						fprintf(stderr, "O comprimento do campo altLoc deve ser 1!\n");
-						exit(EXIT_FAILURE);
-					}
-					global_args.altloc_notequals = optarg[0];
-				}				
-			}
+			case 'e': global_args.filter_exp = strdup(optarg); break;
+			default: break;			
 		}
-		opt = getopt_long(argc, argv, opt_string, longOpts, &longIndex);
+		opt = getopt(argc, argv, opt_string);
 	}
 }
 
@@ -116,38 +76,28 @@ ASTNode *parse_filter(const char* s) {
 	yy_scan_string(s);
 	ASTNode *aux = NULL;
     yyparse((void*) &aux);
-    yylex_destroy();    
-    print_dot(aux);
+    yylex_destroy();        
     return aux;
 
 }
 
-int main(int argc, char* argv[]) {
-	parse_filter("true or (false and (true or true)) or false");
+bool eval_node(ASTNode* node) {
+	if (node == NULL) return false;
+	if (node->type == AST_BOOLEAN) return node->value.bval;
+	if (node->type == AST_AND) return eval_node(node->left) && eval_node(node->right);
+	if (node->type == AST_OR) return eval_node(node->left) || eval_node(node->right);
+	if (node->type == AST_NOT) return !eval_node(node->left);
+	return false;
+}
+
+int main(int argc, char* argv[]) {	
+	parse_global_args(argc, argv);	
+	ASTNode* ast = parse_filter(global_args.filter_exp);
+	print_dot(ast);
+	bool r = eval_node(ast);
+	printf("%s\n", r ? "true" : "false");
 
 	return 0;
-	parse_global_args(argc, argv);
-
-	if (global_args.verbose) {
-		if (global_args.is_atom) {
-			fprintf(stderr, "is atom\n");			
-		}
-		if (global_args.is_hetatm) {
-			fprintf(stderr, "is hetatm\n");
-		}
-		if (global_args.altloc_equals != 0) {
-			fprintf(stderr, "altloc = %c\n", global_args.altloc_equals);
-		}
-		if (global_args.altloc_notequals != 0) {
-			fprintf(stderr, "altloc != %c\n", global_args.altloc_notequals);
-		}
-		if (strnlen(global_args.resname_equals, 4) > 0) {
-			fprintf(stderr, "resname = %s\n", global_args.resname_equals);
-		}
-		if (strnlen(global_args.resname_notequals, 4) > 0) {
-			fprintf(stderr, "resname != %s\n", global_args.resname_equals);
-		}
-	}
 
 	char buffer[81];
 	PDBAtom atom;
@@ -157,15 +107,8 @@ int main(int argc, char* argv[]) {
 		bool is_hetatm = strstr(buffer, "HETATM ") == buffer;
 		
 		if (!is_atom && !is_hetatm) continue;
-		if (global_args.is_atom && !is_atom) continue;
-		if (global_args.is_hetatm && !is_hetatm) continue;
 		
 		PDBAtom_parse(&atom, buffer);
-
-		if (strnlen(global_args.resname_equals, 4) > 0 && strncmp(global_args.resname_equals, atom.resName, 3) != 0) continue;
-		if (strnlen(global_args.resname_notequals, 4) > 0 && strncmp(global_args.resname_notequals, atom.resName, 3) == 0) continue;
-		if (global_args.altloc_equals != 0 && atom.altLoc != global_args.altloc_equals) continue;
-		if (global_args.altloc_notequals != 0 && atom.altLoc == global_args.altloc_notequals) continue;
 
 		if (global_args.reindex) {
 			atom.serial = serial;

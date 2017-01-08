@@ -1,31 +1,30 @@
-/* Infix notation calculator--calc */
-
 %{
 #include "stdio.h"
 #include "ast.h"
 
-#define YYSTYPE ASTNode*
-#define YYDEBUG 0
-
-int yylex(); 
+extern int yylex(); 
 int yyerror(void **tag, const char *p) { printf("erro: %s\n", p); }
 %}
 
 %pure-parser
 %parse-param {void **tag}
 
-%token TRUE FALSE LPAREN RPAREN
-%left AND OR NOT
+%union {
+	float fval;
+	void* pval;
+}
 
-//-- GRAMMAR RULES ---------------------------------------
+%token <pval> TRUE FALSE LPAREN RPAREN NUMBER
+%left <pval> AND OR NOT
+%type <pval> bool_exp
 %%
 
-bool_exp:	| bool_exp AND bool_exp			{ $$ = createNode(AST_AND, $1, $3); *tag = (void*) $$; }
-			| bool_exp OR bool_exp			{ $$ = createNode(AST_OR, $1, $3); *tag = (void*) $$; }
-			| NOT bool_exp %prec NOT 		{ $$ = createNode(AST_NOT, $2, NULL); *tag = (void*) $$; }
-			| LPAREN bool_exp RPAREN		{ $$ = $2; *tag = (void*) $$; }
-			| TRUE							{ $$ = createBool(true); *tag = (void*) $$; }
-			| FALSE							{ $$ = createBool(false); *tag = (void*) $$; }
+bool_exp:	bool_exp AND bool_exp			{ $$ = (void*) createNode(AST_AND, (ASTNode*) $1, (ASTNode*) $3); *tag = $$; }
+			| bool_exp OR bool_exp			{ $$ = (void*) createNode(AST_OR , (ASTNode*) $1, (ASTNode*) $3); *tag = $$; }
+			| NOT bool_exp %prec NOT 		{ $$ = (void*) createNode(AST_NOT, (ASTNode*) $2, NULL         ); *tag = $$; }
+			| LPAREN bool_exp RPAREN		{ $$ = $2;                                                        *tag = $$; }
+			| NUMBER						{ $$ = (void*) createNumber($<fval>1);                            *tag = $$; }
+			| TRUE							{ $$ = (void*) createBool(true);                                  *tag = $$; }
+			| FALSE							{ $$ = (void*) createBool(false);                                 *tag = $$; }
 			;
-
 %%
